@@ -382,4 +382,23 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 </div>
 </footer>
 </div>
-<script defer="" src="./js/main.js"></script></body></html>
+<script defer="" src="./js/main.js"></script>
+<!-- NPS CENTRAL — INÍCIO -->
+<kloh-nps-popup
+  site-id="stop-fire"
+  site-name="Stop Fire"
+  button-label="Responder NPS">
+</kloh-nps-popup>
+
+<script>
+  (() => {
+    const loader = document.createElement('script');
+    loader.src = atob('aHR0cHM6Ly9ucHMtbHBzLnZlcmNlbC5hcHAvd2lkZ2V0Lmpz');
+    loader.async = true;
+    loader.onerror = () => console.error('[NPS] Não foi possível carregar o componente central.');
+    document.head.appendChild(loader);
+  })();
+</script>
+<!-- NPS CENTRAL — FIM -->
+
+</body></html>
