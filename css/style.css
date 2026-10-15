@@ -136,3 +136,19 @@ img{height:auto;max-width:100%}.sf-hero>img,.sf-products img{height:100%}
   .sf-header-cta-arrow{font-size:17px}
   .sf-menu-toggle{min-width:43px;min-height:43px;padding:9px}
 }
+
+/* Confirmação de envio exibida no próprio card, substituindo os campos. */
+.sf-contact .sf-card.sf-form-completed{min-height:430px;justify-content:center}
+.sf-form-success{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:18px;width:100%;padding:20px 0;animation:sf-success-appear .35s ease-out both}
+.sf-form-success-icon{display:grid;place-items:center;width:80px;height:80px;border-radius:50%;background:rgba(224,32,26,.14);border:2px solid #e0201a;color:#fff}
+.sf-form-success-label{font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:700;letter-spacing:.15em;color:#ffc20e}
+.sf-form-success h3{margin:0;color:#fff;font-family:'Barlow Condensed',sans-serif;font-size:clamp(38px,5vw,48px);line-height:1.04;font-weight:900;text-transform:uppercase}
+.sf-form-success h3:focus{outline:none}
+.sf-form-success p{color:#d3d3d3;max-width:410px;margin:0;font-family:'Barlow',sans-serif;font-size:17px!important;line-height:1.5!important}
+.sf-form-success-link{display:flex;align-items:center;justify-content:center;gap:14px;width:100%;max-width:370px;min-height:60px;padding:15px 20px;background:#eceeef;border-radius:4px;color:#181818!important;font-family:'Barlow Condensed',sans-serif;font-size:21px;font-weight:800;text-decoration:none;text-transform:uppercase;transition:background .2s ease}
+.sf-form-success-link:hover{background:#fff}.sf-form-success-link:focus-visible{outline:2px solid #ffc20e;outline-offset:3px}
+.sf-form-success-link span{color:#e0201a;font-size:28px;font-family:Arial,sans-serif;line-height:1}
+.sf-form-success-note{color:#8f8f8f;font-size:14px;line-height:1.45}
+@keyframes sf-success-appear{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+@media(max-width:760px){.sf-contact .sf-card.sf-form-completed{min-height:400px}.sf-form-success{gap:16px;padding:10px 0}.sf-form-success-icon{width:70px;height:70px}.sf-form-success-link{font-size:19px;min-height:56px}}
+@media(prefers-reduced-motion:reduce){.sf-form-success{animation:none}.sf-form-success-link{transition:none}}

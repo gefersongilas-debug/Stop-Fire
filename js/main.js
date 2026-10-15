@@ -62,9 +62,40 @@
   submit.setAttribute('aria-label','Enviar solicitação de orçamento e abrir WhatsApp');
   submit.setAttribute('aria-disabled','false');
   const status=formPanel.querySelector('.sf-form-status');
+  status.setAttribute('role','status');
+  status.setAttribute('aria-live','polite');
   let sending=false;
-  function send(){
-    if(sending)return;
+  let completed=false;
+
+  // A confirmação substitui o formulário dentro do MESMO card, sem redirecionar a LP.
+  function showConfirmation(whatsappUrl,doorType){
+    completed=true;
+    formPanel.classList.add('sf-form-completed');
+    const confirmation=document.createElement('div');
+    confirmation.className='sf-form-success';
+    confirmation.setAttribute('role','status');
+    confirmation.setAttribute('aria-live','polite');
+    confirmation.innerHTML=`
+      <span class="sf-form-success-icon" aria-hidden="true">
+        <svg viewBox="0 0 48 48" width="38" height="38" fill="none" focusable="false"><path d="M10 24.5 19.5 34 39 14" stroke="currentColor" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </span>
+      <div class="sf-form-success-label">STOP FIRE • ORÇAMENTOS</div>
+      <h3 tabindex="-1">Mensagem enviada!</h3>
+      <p>Sua solicitação de orçamento foi encaminhada. Você também pode continuar o atendimento pelo WhatsApp.</p>
+      <a class="sf-form-success-link" target="_blank" rel="noopener noreferrer">Continuar no WhatsApp <span aria-hidden="true">→</span></a>
+      <div class="sf-form-success-note">Resposta em até 2 horas em dias úteis, das 8h às 18h.</div>
+    `;
+    confirmation.querySelector('a').href=whatsappUrl;
+    formPanel.replaceChildren(confirmation);
+    confirmation.querySelector('h3').focus({preventScroll:true});
+    window.dataLayer=window.dataLayer||[];
+    // O evento indica despacho pelo navegador, não confirmação de processamento no Make.
+    window.dataLayer.push({event:'lead_form_submit',channel:'make',form_type:'orcamento',door_type:doorType});
+    window.dataLayer.push({event:'whatsapp_form_open',channel:'whatsapp',form_type:'orcamento',door_type:doorType});
+  }
+
+  async function send(){
+    if(sending||completed)return;
     const inputs=fields.map(el=>el.querySelector('input,textarea'));
     const values=inputs.map(input=>input.value.trim());
     if(!values[0]){inputs[0].setCustomValidity('Informe seu nome para solicitar a cotação.');inputs[0].reportValidity();inputs[0].focus();return;}
@@ -90,23 +121,33 @@
       'Medida do vão: '+(values[3]||'Não informado'),
       '', 'Enviado pela landing page StopFire.'
     ].join('\n');
-    // URLSearchParams envia application/x-www-form-urlencoded, aceito pelo Make sem preflight CORS.
-    // sendBeacon confirma enfileiramento no navegador, não a execução do cenário no Make.
+    const whatsappUrl='https://wa.me/'+WHATSAPP_NUMBER+'?text='+encodeURIComponent(message);
     const body=new URLSearchParams(payload);
+    sending=true;
+    submit.setAttribute('aria-disabled','true');
+    status.textContent='Enviando solicitação...';
+
+    // sendBeacon enfileira o envio rapidamente sem travar a navegação ao WhatsApp.
+    // Make não expõe confirmação de recebimento por CORS: não afirmar que o cenário foi processado.
     let queued=false;
     try{if(navigator.sendBeacon)queued=navigator.sendBeacon(MAKE_WEBHOOK_URL,body);}catch(err){queued=false;}
-    if(!queued){
-      fetch(MAKE_WEBHOOK_URL,{method:'POST',mode:'no-cors',body,keepalive:true,credentials:'omit'})
-        .catch(()=>{status.textContent='Não foi possível confirmar o envio automático. Continue seu atendimento pelo WhatsApp.';});
+    if(queued){
+      showConfirmation(whatsappUrl,type);
+      window.open(whatsappUrl,'_blank','noopener,noreferrer');
+      return;
     }
-    window.dataLayer=window.dataLayer||[];
-    // GTM não recebe PII; registro de conversão não confirma processamento do cenário Make.
-    window.dataLayer.push({event:'lead_form_submit',channel:'make',form_type:'orcamento',door_type:type});
-    window.dataLayer.push({event:'whatsapp_form_open',channel:'whatsapp',form_type:'orcamento',door_type:type});
-    status.textContent='Solicitação iniciada. Continue o atendimento pelo WhatsApp.';
-    sending=true;submit.setAttribute('aria-disabled','true');
-    setTimeout(()=>{sending=false;submit.setAttribute('aria-disabled','false');},2200);
-    window.open('https://wa.me/'+WHATSAPP_NUMBER+'?text='+encodeURIComponent(message),'_blank','noopener,noreferrer');
+    // Se Beacon não conseguir enfileirar, tentar POST no-cors; a UI só muda após despacho.
+    const request=fetch(MAKE_WEBHOOK_URL,{method:'POST',mode:'no-cors',body,keepalive:true,credentials:'omit'});
+    // Abre dentro do gesto do clique para evitar bloqueio de pop-up no fallback assíncrono.
+    window.open(whatsappUrl,'_blank','noopener,noreferrer');
+    try{
+      await request;
+      showConfirmation(whatsappUrl,type);
+    }catch(err){
+      status.textContent='Não foi possível enviar automaticamente. Confira sua conexão e tente novamente, ou continue pelo WhatsApp.';
+      sending=false;
+      submit.setAttribute('aria-disabled','false');
+    }
   }
   submit.addEventListener('click',send);
   document.querySelectorAll('a[href^="https://wa.me/5511924862165"]').forEach(link=>{
