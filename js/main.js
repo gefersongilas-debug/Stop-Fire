@@ -159,6 +159,38 @@
     input.name=['nome','whatsapp','cidade','medida'][i];
     if(i<3){input.type=i===1?'tel':'text';input.autocomplete=['name','tel','address-level2'][i];}
     if(i<2){input.required=true;input.addEventListener('input',()=>input.setCustomValidity(''));}
+    if(i===1){
+      // Máscara brasileira: (11) 91234-5678. Também aceita colagem com +55.
+      input.inputMode='numeric';
+      input.autocomplete='tel-national';
+      const formatPhone=(raw)=>{
+        let digits=String(raw||'').replace(/\D/g,'');
+        if(digits.length>11&&digits.startsWith('55'))digits=digits.slice(2);
+        digits=digits.slice(0,11);
+        if(!digits)return '';
+        if(digits.length<=2)return '('+digits+(digits.length===2?') ':'');
+        const area=digits.slice(0,2),number=digits.slice(2);
+        const split=digits.length===10&&digits[2]!=='9'?4:5;
+        return '('+area+') '+(number.length>split?number.slice(0,split)+'-'+number.slice(split):number);
+      };
+      const digitsBefore=(text,pos)=>text.slice(0,pos).replace(/\D/g,'').length;
+      const positionAfterDigits=(text,count)=>{
+        if(!count)return 0;
+        let seen=0;
+        for(let pos=0;pos<text.length;pos++){
+          if(/\d/.test(text[pos])&&++seen===count)return pos+1;
+        }
+        return text.length;
+      };
+      input.addEventListener('input',()=>{
+        const original=input.value,selection=input.selectionStart??original.length;
+        const count=digitsBefore(original,selection),masked=formatPhone(original);
+        if(original!==masked){
+          input.value=masked;
+          if(document.activeElement===input)input.setSelectionRange(positionAfterDigits(masked,count),positionAfterDigits(masked,count));
+        }
+      });
+    }
     el.append(input);
   });
   const typeLabel=[...formPanel.querySelectorAll('div')].find(el=>el.childElementCount===0&&el.textContent.trim()==='Tipo de porta');
