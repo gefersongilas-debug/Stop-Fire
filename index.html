@@ -25,13 +25,19 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <header class="sf-nav" role="banner" style="position:sticky;top:0;z-index:50;background:rgba(15,15,15,.94);border-bottom:1px solid rgba(255,255,255,.09);backdrop-filter:blur(10px)">
 <div class="sf-container" style="width:1200px;margin:0 auto;height:96px;display:flex;align-items:center;justify-content:space-between">
 <img alt="Stop Fire" decoding="async" height="1911" loading="eager" src="./assets/images/stop-fire-logo.webp" style="height: 102px; width: 115px" width="2048"/>
-<div aria-label="Navegação principal" role="navigation" style="display:flex;align-items:center;gap:38px">
+<a class="sf-header-cta" href="#orcamento" aria-label="Solicitar orçamento em até 2 horas">
+  <span>Orçamento em 2h</span><span class="sf-header-cta-arrow" aria-hidden="true">→</span>
+</a>
+<button class="sf-menu-toggle" type="button" aria-label="Abrir menu de navegação" aria-controls="sf-primary-nav" aria-expanded="false">
+  <span class="sf-menu-toggle-bar"></span><span class="sf-menu-toggle-bar"></span><span class="sf-menu-toggle-bar"></span>
+</button>
+<nav aria-label="Navegação principal" class="sf-menu" id="sf-primary-nav" style="display:flex;align-items:center;gap:38px">
 <a href="#produtos" style="font-family:'Barlow Condensed',sans-serif;font-weight:600;font-size:19px;letter-spacing:.09em;text-transform:uppercase;color:#c2c2c2">Produtos</a>
 <a href="#diferenciais" style="font-family:'Barlow Condensed',sans-serif;font-weight:600;font-size:19px;letter-spacing:.09em;text-transform:uppercase;color:#c2c2c2">Diferenciais</a>
 <a href="#como-funciona" style="font-family:'Barlow Condensed',sans-serif;font-weight:600;font-size:19px;letter-spacing:.09em;text-transform:uppercase;color:#c2c2c2">Como funciona</a>
 <a href="#faq" style="font-family:'Barlow Condensed',sans-serif;font-weight:600;font-size:19px;letter-spacing:.09em;text-transform:uppercase;color:#c2c2c2">Dúvidas</a>
 <a class="h-red" href="#orcamento" style="display:flex;align-items:center;gap:12px;background:#E0201A;padding:15px 26px;font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:20px;letter-spacing:.04em;text-transform:uppercase;color:#fff;white-space:nowrap">Orçamento em 2h <span style="font-size:20px">→</span></a>
-</div>
+</nav>
 </div></header><main id="conteudo"><section aria-label="Apresentação Stop Fire" class="sf-hero" style="position:relative;min-height:980px;overflow:hidden;background:#141414">
 <img alt="Porta corta-fogo com barra antipânico instalada" decoding="async" fetchpriority="high" height="600" loading="eager" src="./assets/images/porta-corta-fogo-barra-antipanico.webp" style="position:absolute;top:0;right:0;width:56%;height:100%;object-fit:cover;object-position:50% 45%;filter:contrast(1.1) saturate(.8) brightness(.9)" width="600"/>
 <div style="position:absolute;top:0;right:0;width:56%;height:100%;background:radial-gradient(circle at 58% 34%,rgba(224,32,26,.36) 0%,rgba(224,32,26,0) 64%)"></div>
@@ -59,7 +65,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 </div>
 <div style="position:absolute;left:0;right:0;bottom:0;height:5px;background:linear-gradient(90deg,#E0201A 0%,#E0201A 62%,#FFC20E 62%,#FFC20E 100%)"></div>
 </section><section class="sf-proof" style="background:#1b1b1b;border-bottom:1px solid rgba(255,255,255,.07)">
-<div class="sf-container" style="width:1200px;margin:0 auto;display:grid;grid-template-columns:repeat(4,1fr);gap:0">
+<div class="sf-container sf-grid" style="width:1200px;margin:0 auto;display:grid;grid-template-columns:repeat(4,1fr);gap:0">
 <div style="padding:34px 28px;border-right:1px solid rgba(255,255,255,.07);display:flex;flex-direction:column;gap:5px">
 <div style="font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:40px;line-height:1;color:#E0201A">2 horas</div>
 <div style="font-family:'Barlow Condensed',sans-serif;font-weight:600;font-size:19px;letter-spacing:.1em;text-transform:uppercase;color:#a0a0a0">Para o orçamento</div>
@@ -284,10 +290,11 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <div style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:17px;letter-spacing:.12em;text-transform:uppercase;color:#9a9a9a">Medida do vão</div>
 <div style="background:#141414;border:1px solid rgba(255,255,255,.16);padding:17px 18px;font-size:19px;color:#6d6d6d;min-height:76px">Ex.: 1,10 × 2,10 m — P90 — com barra antipânico</div>
 </div>
-<div style="display:flex;align-items:center;gap:16px;justify-content:center;background:#E0201A;padding:23px 36px;margin-top:6px">
+<button type="button" style="display:flex;align-items:center;gap:16px;justify-content:center;background:#E0201A;padding:23px 36px;margin-top:6px;width:100%;cursor:pointer">
 <div style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:28px;letter-spacing:.03em;text-transform:uppercase;color:#fff;white-space:nowrap">Receber orçamento em 2h</div>
 <div style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:28px;color:#fff">→</div>
-</div>
+</button>
+<div class="sf-form-status" role="status" aria-live="polite"></div>
 <div style="font-size:16px;line-height:1.5;color:#7d7d7d;text-align:center">Resposta em até 2 horas em dias úteis, das 8h às 18h.</div>
 </div>
 </div>

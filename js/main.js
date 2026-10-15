@@ -12,7 +12,27 @@
     revealTargets.forEach((el,i)=>{el.classList.add('sf-reveal');el.style.setProperty('--delay',`${Math.min(i%3*85,170)}ms`);observer.observe(el);});
     const headline=hero.querySelector('h1');headline.style.setProperty('--delay','170ms');hero.querySelector('p').style.setProperty('--delay','290ms');hero.querySelector('.h-red').parentElement.style.setProperty('--delay','400ms');
   }
-  // Mantém o formulário visual original e envia a cotação ao WhatsApp comercial.
+
+  // Navegação acessível para mobile e tablet, com fechamento pelo link, Escape ou clique fora.
+  const menuToggle=nav.querySelector('.sf-menu-toggle');
+  const menu=nav.querySelector('.sf-menu');
+  const closeMenu=()=>{
+    nav.classList.remove('sf-menu-open');
+    menuToggle.setAttribute('aria-expanded','false');
+    menuToggle.setAttribute('aria-label','Abrir menu de navegação');
+  };
+  menuToggle.addEventListener('click',()=>{
+    const open=!nav.classList.contains('sf-menu-open');
+    nav.classList.toggle('sf-menu-open',open);
+    menuToggle.setAttribute('aria-expanded',String(open));
+    menuToggle.setAttribute('aria-label',open?'Fechar menu de navegação':'Abrir menu de navegação');
+  });
+  menu.addEventListener('click',e=>{if(e.target.closest('a'))closeMenu();});
+  document.addEventListener('keydown',e=>{if(e.key==='Escape'&&nav.classList.contains('sf-menu-open')){closeMenu();menuToggle.focus();}});
+  document.addEventListener('pointerdown',e=>{if(nav.classList.contains('sf-menu-open')&&!nav.contains(e.target))closeMenu();});
+  matchMedia('(min-width: 981px)').addEventListener('change',e=>{if(e.matches)closeMenu();});
+  // Envia o lead ao Make antes de abrir o WhatsApp, inclusive se o visitante não enviar a conversa.
+  const MAKE_WEBHOOK_URL='https://hook.us1.make.celonis.com/14fp11ov9z2bxivmt301qyg8nbx86c2w';
   const WHATSAPP_NUMBER='5511924862165';
   const formPanel=document.querySelector('.sf-contact .sf-card');
   const fields=[...formPanel.querySelectorAll('div[style*="color:#6d6d6d"]')];
@@ -38,16 +58,29 @@
   }
   const submit=[...formPanel.children].find(el=>el.style.justifyContent==='center');
   submit.classList.add('sf-submit');
-  submit.setAttribute('role','button');submit.tabIndex=0;
-  submit.setAttribute('aria-label','Enviar solicitação de orçamento pelo WhatsApp');
+  submit.type='button';
+  submit.setAttribute('aria-label','Enviar solicitação de orçamento e abrir WhatsApp');
   submit.setAttribute('aria-disabled','false');
+  const status=formPanel.querySelector('.sf-form-status');
+  let sending=false;
   function send(){
+    if(sending)return;
     const inputs=fields.map(el=>el.querySelector('input,textarea'));
     const values=inputs.map(input=>input.value.trim());
     if(!values[0]){inputs[0].setCustomValidity('Informe seu nome para solicitar a cotação.');inputs[0].reportValidity();inputs[0].focus();return;}
     const digits=values[1].replace(/\D/g,'');
     if(digits.length<10||digits.length>13){inputs[1].setCustomValidity('Informe seu WhatsApp com DDD.');inputs[1].reportValidity();inputs[1].focus();return;}
     const type=formPanel.querySelector('[aria-pressed="true"]')?.textContent.trim()||'Não informado';
+    const query=new URLSearchParams(location.search);
+    const payload={
+      nome:values[0],whatsapp:values[1],telefone:digits,
+      cidade:values[2],tipo_porta:type,medida:values[3],
+      site:'StopFire',origem:'landing_page',pagina:location.href,
+      timestamp:new Date().toISOString(),
+      utm_source:query.get('utm_source')||'',utm_medium:query.get('utm_medium')||'',
+      utm_campaign:query.get('utm_campaign')||'',utm_content:query.get('utm_content')||'',
+      utm_term:query.get('utm_term')||'',gclid:query.get('gclid')||'',fbclid:query.get('fbclid')||''
+    };
     const message=[
       'Olá! Gostaria de solicitar um orçamento na StopFire. 🔥🚪','',
       'Nome: '+values[0],
@@ -57,13 +90,25 @@
       'Medida do vão: '+(values[3]||'Não informado'),
       '', 'Enviado pela landing page StopFire.'
     ].join('\n');
+    // URLSearchParams envia application/x-www-form-urlencoded, aceito pelo Make sem preflight CORS.
+    // sendBeacon confirma enfileiramento no navegador, não a execução do cenário no Make.
+    const body=new URLSearchParams(payload);
+    let queued=false;
+    try{if(navigator.sendBeacon)queued=navigator.sendBeacon(MAKE_WEBHOOK_URL,body);}catch(err){queued=false;}
+    if(!queued){
+      fetch(MAKE_WEBHOOK_URL,{method:'POST',mode:'no-cors',body,keepalive:true,credentials:'omit'})
+        .catch(()=>{status.textContent='Não foi possível confirmar o envio automático. Continue seu atendimento pelo WhatsApp.';});
+    }
     window.dataLayer=window.dataLayer||[];
-    // Evento sem dados pessoais: compatível com tags de conversão no GTM.
+    // GTM não recebe PII; registro de conversão não confirma processamento do cenário Make.
+    window.dataLayer.push({event:'lead_form_submit',channel:'make',form_type:'orcamento',door_type:type});
     window.dataLayer.push({event:'whatsapp_form_open',channel:'whatsapp',form_type:'orcamento',door_type:type});
+    status.textContent='Solicitação iniciada. Continue o atendimento pelo WhatsApp.';
+    sending=true;submit.setAttribute('aria-disabled','true');
+    setTimeout(()=>{sending=false;submit.setAttribute('aria-disabled','false');},2200);
     window.open('https://wa.me/'+WHATSAPP_NUMBER+'?text='+encodeURIComponent(message),'_blank','noopener,noreferrer');
   }
   submit.addEventListener('click',send);
-  submit.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();send();}});
   document.querySelectorAll('a[href^="https://wa.me/5511924862165"]').forEach(link=>{
     link.addEventListener('click',()=>{
       const section=link.closest('section,header,footer');
