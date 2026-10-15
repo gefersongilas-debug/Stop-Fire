@@ -31,9 +31,124 @@
   document.addEventListener('keydown',e=>{if(e.key==='Escape'&&nav.classList.contains('sf-menu-open')){closeMenu();menuToggle.focus();}});
   document.addEventListener('pointerdown',e=>{if(nav.classList.contains('sf-menu-open')&&!nav.contains(e.target))closeMenu();});
   matchMedia('(min-width: 981px)').addEventListener('change',e=>{if(e.matches)closeMenu();});
-  // Envia o lead ao Make antes de abrir o WhatsApp, inclusive se o visitante não enviar a conversa.
+  // Webhook direto da LP estática. Dados do lead + atribuição são enviados em um único POST.
   const MAKE_WEBHOOK_URL='https://hook.us1.make.celonis.com/14fp11ov9z2bxivmt301qyg8nbx86c2w';
   const WHATSAPP_NUMBER='5511924862165';
+  const TRACKING_SESSION_KEY='stopfire_lead_attribution_v2';
+  const TRACKING_KEYS=[
+    'utm_source','utm_medium','utm_campaign','utm_term','utm_content','utm_id',
+    'gclid','gbraid','wbraid','dclid','fbclid','msclkid','ttclid','twclid',
+    'li_fat_id','srsltid','gad_source','gad_campaignid',
+    'campaign_id','adset_id','ad_id','campaign','adset','ad',
+    'campanha','conjunto_grupo','anuncio_criativo','palavra_chave','tema','visivel'
+  ];
+  const TRACKING_RESERVED=new Set(['__proto__','prototype','constructor']);
+  // Parâmetros de autenticação são removidos dos metadados e URLs para não registrar credenciais.
+  const TRACKING_SECRET=/^(?:access_token|refresh_token|id_token|token|auth|authorization|password|passwd|senha|secret|api[_-]?key|client_secret|jwt|session_token|oauth_token|code)$/i;
+  const limited=(value,max=600)=>String(value??'').slice(0,max);
+  const trackingIsSafeKey=(key)=>!TRACKING_SECRET.test(key)&&!TRACKING_RESERVED.has(key.toLowerCase());
+  const readUrlParams=(search)=>{
+    const entries={};
+    try{
+      const params=new URLSearchParams(search);
+      for(const [key,value] of params){
+        if(!trackingIsSafeKey(key)||Object.keys(entries).length>=60&&!Object.hasOwn(entries,key))continue;
+        // Suporta vários valores para o mesmo parâmetro, mantendo-os legíveis no Make.
+        entries[key]=Object.hasOwn(entries,key)?`${entries[key]} | ${limited(value,200)}`:limited(value,200);
+      }
+    }catch(err){}
+    return entries;
+  };
+  const safeTrackingUrl=(href)=>{
+    if(!href)return '';
+    try{
+      const url=new URL(href,location.href);
+      for(const key of [...url.searchParams.keys()]){
+        if(!trackingIsSafeKey(key))url.searchParams.delete(key);
+      }
+      return limited(url.href,4000);
+    }catch(err){return '';}
+  };
+  const currentUrlParams=readUrlParams(location.search);
+  const firstTouch=(()=>{
+    let state=null;
+    try{state=JSON.parse(sessionStorage.getItem(TRACKING_SESSION_KEY)||'null');}catch(err){}
+    if(!state||!state.landing_page||typeof state.params!=='object'||!state.params){
+      state={landing_page:safeTrackingUrl(location.href),landing_referrer:safeTrackingUrl(document.referrer),landing_at:new Date().toISOString(),landing_params:currentUrlParams,params:{}};
+    }
+    state.params={...state.params,...currentUrlParams};
+    try{sessionStorage.setItem(TRACKING_SESSION_KEY,JSON.stringify(state));}catch(err){}
+    return state;
+  })();
+  const attributionParams=()=>({...firstTouch.params,...readUrlParams(location.search)});
+  const cookieValue=(name)=>{
+    try{
+      const item=document.cookie.split(';').map(c=>c.trim()).find(c=>c.startsWith(name+'='));
+      return item?limited(decodeURIComponent(item.slice(name.length+1)),400):'';
+    }catch(err){return '';}
+  };
+  const gaClientId=()=>{
+    const value=cookieValue('_ga');
+    return /^GA\d+\.\d+\./.test(value)?value.split('.').slice(2).join('.'):'';
+  };
+  const trafficSource=()=>{
+    const p=attributionParams();
+    if(p.utm_source)return p.utm_source;
+    if(p.gclid||p.gbraid||p.wbraid)return 'google_ads';
+    if(p.fbclid)return 'meta_ads';
+    if(p.msclkid)return 'microsoft_ads';
+    if(firstTouch.landing_referrer){try{return new URL(firstTouch.landing_referrer).hostname;}catch(err){return 'referencia';}}
+    return 'direto';
+  };
+  const deviceType=()=>innerWidth<=760?'mobile':innerWidth<=1024?'tablet':'desktop';
+  const userBrowser=()=>{
+    const ua=navigator.userAgent||'';
+    return /Edg\//.test(ua)?'Edge':/Firefox\//.test(ua)?'Firefox':/Chrome\//.test(ua)?'Chrome':/Safari\//.test(ua)?'Safari':'Outro';
+  };
+  function buildTracking(formValues,doorType){
+    const params=attributionParams();
+    const valueFor=(key)=>params[key]||params[Object.keys(params).find(k=>k.toLowerCase()===key)]||'';
+    const now=new Date();
+    let timezone='';
+    try{timezone=Intl.DateTimeFormat().resolvedOptions().timeZone||'';}catch(err){}
+    const payload={
+      // Campos existentes: manter os nomes para não quebrar o cenário atual do Make.
+      nome:formValues[0],whatsapp:formValues[1],telefone:formValues[1].replace(/\D/g,''),
+      cidade:formValues[2],tipo_porta:doorType,medida:formValues[3],
+      site:'StopFire',empresa_marca:'StopFire',origem:'landing_page',origem_visita:trafficSource(),conversao:'solicitacao_orcamento',
+      form_id:'stopfire-orcamento',form_name:'Solicite a cotação',form_type:'orcamento',
+      pagina:safeTrackingUrl(location.href),page_url:safeTrackingUrl(location.href),
+      page_title:limited(document.title,300),page_path:location.pathname,
+      dominio:location.hostname,query_string:limited(new URLSearchParams(Object.entries(currentUrlParams)).toString(),4000),
+      referrer:safeTrackingUrl(document.referrer),
+      landing_page:firstTouch.landing_page,landing_referrer:firstTouch.landing_referrer,
+      landing_at:firstTouch.landing_at,
+      submitted_at:now.toISOString(),timestamp:now.toISOString(),enviado_em:now.toISOString(),data_hora_conversao:now.toISOString(),
+      // IDs de anúncio + UTMs explícitos para colunas diretas no Make / Sheets / CRM.
+      ...Object.fromEntries(TRACKING_KEYS.map(key=>[key,valueFor(key)])),
+      // Outros parâmetros da URL: não se perde o que não foi previsto na campanha.
+      url_parametros:JSON.stringify(params),
+      url_parametros_atuais:JSON.stringify(readUrlParams(location.search)),
+      url_parametros_entrada:JSON.stringify(firstTouch.landing_params||{}),
+      fbp:cookieValue('_fbp'),fbc:cookieValue('_fbc'),
+      ga_client_id:gaClientId(),ga_cookie:cookieValue('_ga'),
+      user_agent:limited(navigator.userAgent||'',600),browser:userBrowser(),
+      idioma:limited(navigator.language||'',40),timezone,
+      screen_width:screen.width,screen_height:screen.height,
+      viewport_width:innerWidth,viewport_height:innerHeight,device_pixel_ratio:devicePixelRatio||1,
+      device_type:deviceType(),
+      lead_id:typeof crypto!=='undefined'&&typeof crypto.randomUUID==='function'?crypto.randomUUID():`sf-${Date.now()}-${Math.random().toString(36).slice(2,10)}`
+    };
+    // Todas as UTMs adicionais e parâmetros personalizados também ficam em colunas individuais.
+    // Prefixo param_ evita que uma query sobrescreva os dados preenchidos no formulário.
+    for(const [key,value] of Object.entries(params)){
+      if(!trackingIsSafeKey(key))continue;
+      const flatKey='param_'+key.replace(/[^a-z\d_]/gi,'_').slice(0,70);
+      if(flatKey!=='param_'&&!Object.hasOwn(payload,flatKey))payload[flatKey]=value;
+      if(/^utm_[a-z\d_]+$/i.test(key)&&!Object.hasOwn(payload,key))payload[key]=value;
+    }
+    return payload;
+  }
   const formPanel=document.querySelector('.sf-contact .sf-card');
   const fields=[...formPanel.querySelectorAll('div[style*="color:#6d6d6d"]')];
   fields.forEach((el,i)=>{
@@ -59,7 +174,7 @@
   const submit=[...formPanel.children].find(el=>el.style.justifyContent==='center');
   submit.classList.add('sf-submit');
   submit.type='button';
-  submit.setAttribute('aria-label','Enviar solicitação de orçamento e abrir WhatsApp');
+  submit.setAttribute('aria-label','Enviar solicitação de orçamento');
   submit.setAttribute('aria-disabled','false');
   const status=formPanel.querySelector('.sf-form-status');
   status.setAttribute('role','status');
@@ -68,7 +183,7 @@
   let completed=false;
 
   // A confirmação substitui o formulário dentro do MESMO card, sem redirecionar a LP.
-  function showConfirmation(whatsappUrl,doorType){
+  function showConfirmation(whatsappUrl,doorType,tracking){
     completed=true;
     formPanel.classList.add('sf-form-completed');
     const confirmation=document.createElement('div');
@@ -85,13 +200,17 @@
       <a class="sf-form-success-link" target="_blank" rel="noopener noreferrer">Continuar no WhatsApp <span aria-hidden="true">→</span></a>
       <div class="sf-form-success-note">Resposta em até 2 horas em dias úteis, das 8h às 18h.</div>
     `;
-    confirmation.querySelector('a').href=whatsappUrl;
+    const whatsappLink=confirmation.querySelector('a');
+    whatsappLink.href=whatsappUrl;
+    whatsappLink.addEventListener('click',()=>{
+      window.dataLayer=window.dataLayer||[];
+      window.dataLayer.push({event:'whatsapp_form_open',channel:'whatsapp',form_type:'orcamento',door_type:doorType,lead_id:tracking.lead_id});
+    });
     formPanel.replaceChildren(confirmation);
     confirmation.querySelector('h3').focus({preventScroll:true});
     window.dataLayer=window.dataLayer||[];
     // O evento indica despacho pelo navegador, não confirmação de processamento no Make.
-    window.dataLayer.push({event:'lead_form_submit',channel:'make',form_type:'orcamento',door_type:doorType});
-    window.dataLayer.push({event:'whatsapp_form_open',channel:'whatsapp',form_type:'orcamento',door_type:doorType});
+    window.dataLayer.push({event:'lead_form_submit',channel:'make',form_type:'orcamento',door_type:doorType,lead_id:tracking.lead_id,form_id:tracking.form_id,utm_source:tracking.utm_source,utm_medium:tracking.utm_medium,utm_campaign:tracking.utm_campaign,gclid:tracking.gclid,fbclid:tracking.fbclid,page_url:tracking.page_url,dispatch_status:'queued'});
   }
 
   async function send(){
@@ -102,16 +221,7 @@
     const digits=values[1].replace(/\D/g,'');
     if(digits.length<10||digits.length>13){inputs[1].setCustomValidity('Informe seu WhatsApp com DDD.');inputs[1].reportValidity();inputs[1].focus();return;}
     const type=formPanel.querySelector('[aria-pressed="true"]')?.textContent.trim()||'Não informado';
-    const query=new URLSearchParams(location.search);
-    const payload={
-      nome:values[0],whatsapp:values[1],telefone:digits,
-      cidade:values[2],tipo_porta:type,medida:values[3],
-      site:'StopFire',origem:'landing_page',pagina:location.href,
-      timestamp:new Date().toISOString(),
-      utm_source:query.get('utm_source')||'',utm_medium:query.get('utm_medium')||'',
-      utm_campaign:query.get('utm_campaign')||'',utm_content:query.get('utm_content')||'',
-      utm_term:query.get('utm_term')||'',gclid:query.get('gclid')||'',fbclid:query.get('fbclid')||''
-    };
+    const payload=buildTracking(values,type);
     const message=[
       'Olá! Gostaria de solicitar um orçamento na StopFire. 🔥🚪','',
       'Nome: '+values[0],
@@ -127,22 +237,19 @@
     submit.setAttribute('aria-disabled','true');
     status.textContent='Enviando solicitação...';
 
-    // sendBeacon enfileira o envio rapidamente sem travar a navegação ao WhatsApp.
+    // sendBeacon enfileira o envio sem navegar; WhatsApp abre apenas se o lead clicar no botão.
     // Make não expõe confirmação de recebimento por CORS: não afirmar que o cenário foi processado.
     let queued=false;
     try{if(navigator.sendBeacon)queued=navigator.sendBeacon(MAKE_WEBHOOK_URL,body);}catch(err){queued=false;}
     if(queued){
-      showConfirmation(whatsappUrl,type);
-      window.open(whatsappUrl,'_blank','noopener,noreferrer');
+      showConfirmation(whatsappUrl,type,payload);
       return;
     }
     // Se Beacon não conseguir enfileirar, tentar POST no-cors; a UI só muda após despacho.
     const request=fetch(MAKE_WEBHOOK_URL,{method:'POST',mode:'no-cors',body,keepalive:true,credentials:'omit'});
-    // Abre dentro do gesto do clique para evitar bloqueio de pop-up no fallback assíncrono.
-    window.open(whatsappUrl,'_blank','noopener,noreferrer');
     try{
       await request;
-      showConfirmation(whatsappUrl,type);
+      showConfirmation(whatsappUrl,type,payload);
     }catch(err){
       status.textContent='Não foi possível enviar automaticamente. Confira sua conexão e tente novamente, ou continue pelo WhatsApp.';
       sending=false;
