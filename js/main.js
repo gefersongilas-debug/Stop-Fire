@@ -4,7 +4,7 @@
   const reduced=matchMedia('(prefers-reduced-motion: reduce)'),fine=matchMedia('(hover: hover) and (pointer: fine) and (min-width: 761px)');
   let motion=!reduced.matches&&fine.matches;
   const decorations=['grid','orbit','points'].map((name,i)=>{const el=document.createElement('span');el.className='sf-decor sf-decor-'+name;el.setAttribute('aria-hidden','true');hero.append(el);return {el,depth:[3,9,15][i]};});
-  const dot=document.createElement('span'),ring=document.createElement('span'),progress=document.createElement('span');dot.className='sf-cursor-dot';ring.className='sf-cursor-ring';progress.className='sf-progress';[dot,ring,progress].forEach(el=>{el.setAttribute('aria-hidden','true');document.body.append(el);});
+  const progress=document.createElement('span');progress.className='sf-progress';progress.setAttribute('aria-hidden','true');document.body.append(progress);
   const revealTargets=[...document.querySelectorAll('h1,h2,.sf-hero .sf-container>div>div,.sf-hero p,.sf-card,.sf-proof .sf-grid>div,.sf-process .sf-grid>div,.sf-faq .sf-container>div:last-child>div,.sf-closing .sf-container>*')];
   let observer;
   if('IntersectionObserver' in window&&!reduced.matches){
@@ -298,27 +298,23 @@
   });
   const ctas=[...document.querySelectorAll('.h-red,.h-ghost,.h-dark')];
   let metrics=[],card=null,cardRect=null,raf=0,dirty=true,visible=true;
-  const pointer={x:innerWidth/2,y:innerHeight/2,rx:innerWidth/2,ry:innerHeight/2,active:false,hover:false,scale:1};
+  const pointer={x:innerWidth/2,y:innerHeight/2,active:false};
   const image=hero.querySelector('img');let heroRect=hero.getBoundingClientRect();
   function measure(){metrics=ctas.map(el=>({el,rect:el.getBoundingClientRect()}));heroRect=hero.getBoundingClientRect();dirty=true;wake();}
   function wake(){if(!raf&&visible)raf=requestAnimationFrame(frame);}
   function frame(){raf=0;if(!visible)return;const y=window.scrollY,max=document.documentElement.scrollHeight-innerHeight;progress.style.setProperty('--progress',max>0?y/max:0);nav.classList.toggle('sf-scrolled',y>28);
-    let unsettled=false;
     if(motion){
-      pointer.rx+=(pointer.x-pointer.rx)*.16;pointer.ry+=(pointer.y-pointer.ry)*.16;const target=pointer.hover?1.65:1;pointer.scale+=(target-pointer.scale)*.12;
-      dot.style.transform=`translate3d(${pointer.x-2.5}px,${pointer.y-2.5}px,0)`;ring.style.transform=`translate3d(${pointer.rx-17}px,${pointer.ry-17}px,0) scale(${pointer.scale})`;
-      unsettled=Math.abs(pointer.rx-pointer.x)+Math.abs(pointer.ry-pointer.y)+Math.abs(target-pointer.scale)>.08;
       if(dirty){const nx=pointer.active?(pointer.x/innerWidth-.5)*2:0,ny=pointer.active?(pointer.y/innerHeight-.5)*2:0;
         if(heroRect.bottom>0&&heroRect.top<innerHeight){decorations.forEach(({el,depth})=>{el.style.setProperty('--px',nx*depth+'px');el.style.setProperty('--py',ny*depth+Math.min(y,900)*depth*.009+'px');});image.style.setProperty('--px',nx*5+'px');image.style.setProperty('--py',ny*5+Math.min(y,900)*.028+'px');hero.style.setProperty('--hx',pointer.x-heroRect.left+'px');hero.style.setProperty('--hy',pointer.y-heroRect.top+'px');}
         metrics.forEach(({el,rect:r})=>{const dx=pointer.x-(r.left+r.width/2),dy=pointer.y-(r.top+r.height/2);const near=pointer.active&&Math.abs(dx)<r.width/2+28&&Math.abs(dy)<r.height/2+28;el.style.setProperty('--mx',near?Math.max(-7,Math.min(7,dx*.065))+'px':'0px');el.style.setProperty('--my',near?Math.max(-5,Math.min(5,dy*.11))+'px':'0px');el.style.setProperty('--ms',near?'1.018':'1');el.style.setProperty('--lx',pointer.x-r.left+'px');el.style.setProperty('--ly',pointer.y-r.top+'px');});
         if(card&&cardRect){const r=cardRect,x=(pointer.x-r.left)/r.width-.5,y=(pointer.y-r.top)/r.height-.5;card.style.setProperty('--rx',-y*2+'deg');card.style.setProperty('--ry',x*2+'deg');card.style.setProperty('--cx',x*2+'px');card.style.setProperty('--cy',y*2+'px');card.style.setProperty('--lx',pointer.x-r.left+'px');card.style.setProperty('--ly',pointer.y-r.top+'px');}
       }
-    }dirty=false;if(unsettled)wake();
+    }dirty=false;
   }
   const resetCard=()=>{if(card){['--rx','--ry','--cx','--cy'].forEach(p=>card.style.removeProperty(p));}card=null;cardRect=null;};
-  document.addEventListener('pointermove',e=>{if(!motion||e.pointerType==='touch')return;pointer.x=e.clientX;pointer.y=e.clientY;pointer.active=true;document.body.classList.add('sf-cursor-active');dirty=true;wake();},{passive:true});
-  document.addEventListener('pointerover',e=>{if(!motion)return;pointer.hover=!!e.target.closest('a,button,input,textarea,.sf-choice');document.body.classList.toggle('sf-cursor-hover',pointer.hover);const next=e.target.closest('.sf-card');if(next!==card){resetCard();card=next;cardRect=card?.getBoundingClientRect();}dirty=true;wake();},{passive:true});
-  function leave(){pointer.active=false;document.body.classList.remove('sf-cursor-active');resetCard();dirty=true;wake();}
+  document.addEventListener('pointermove',e=>{if(!motion||e.pointerType==='touch')return;pointer.x=e.clientX;pointer.y=e.clientY;pointer.active=true;dirty=true;wake();},{passive:true});
+  document.addEventListener('pointerover',e=>{if(!motion)return;const next=e.target.closest('.sf-card');if(next!==card){resetCard();card=next;cardRect=card?.getBoundingClientRect();}dirty=true;wake();},{passive:true});
+  function leave(){pointer.active=false;resetCard();dirty=true;wake();}
   document.documentElement.addEventListener('pointerleave',leave);window.addEventListener('blur',leave);
   let scrollScheduled=false;
   window.addEventListener('scroll',()=>{if(scrollScheduled)return;scrollScheduled=true;requestAnimationFrame(()=>{scrollScheduled=false;resetCard();measure();});},{passive:true});
